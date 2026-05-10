@@ -5,6 +5,7 @@ export type Color = string;
 export type StrokeStyle = {
   color: Color;
   width: number;
+  opacity?: number;
 };
 
 export type SymmetryConfig = {
@@ -14,10 +15,19 @@ export type SymmetryConfig = {
   centerY: number;
 };
 
+export type StrokeKind = 'pencil' | 'pen' | 'brush' | 'marker' | 'eraser';
+
 export type Command =
   | {
-      type: 'pencil';
+      type: 'stroke';
+      kind: StrokeKind;
       points: Point[];
+      style: StrokeStyle;
+      symmetry: SymmetryConfig;
+    }
+  | {
+      type: 'airbrush';
+      dots: Point[];
       style: StrokeStyle;
       symmetry: SymmetryConfig;
     }

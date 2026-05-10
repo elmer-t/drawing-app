@@ -5,7 +5,7 @@ export function BrushSizeControl() {
   const setBrushSize = useStore((s) => s.setBrushSize);
 
   return (
-    <label className="flex items-center gap-3 text-sm text-zinc-700">
+    <label className="flex items-center gap-3 text-sm text-zinc-700 dark:text-zinc-200">
       <span>Brush</span>
       <input
         type="range"
