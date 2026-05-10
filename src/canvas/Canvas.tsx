@@ -7,6 +7,7 @@ import { createTool } from '../tools';
 import type { Tool, ToolContext } from '../tools/types';
 
 export function Canvas() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const committedRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const toolRef = useRef<Tool | null>(null);
@@ -20,6 +21,25 @@ export function Canvas() {
   const symmetry = useStore((s) => s.symmetry);
   const commands = useStore((s) => s.commands);
   const pushCommand = useStore((s) => s.pushCommand);
+  const setCanvasSize = useStore((s) => s.setCanvasSize);
+
+  // Match the canvas to the available container size on mount and on resize.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      const rect = el.getBoundingClientRect();
+      const w = Math.max(64, Math.floor(rect.width));
+      const h = Math.max(64, Math.floor(rect.height));
+      setCanvasSize(w, h);
+    };
+
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [setCanvasSize]);
 
   useEffect(() => {
     if (committedRef.current) setupHiDPI(committedRef.current, width, height);
@@ -34,7 +54,7 @@ export function Canvas() {
     const ctx = committedRef.current?.getContext('2d');
     if (!ctx) return;
     rerender(ctx, commands, background);
-  }, [commands, background]);
+  }, [commands, background, width, height]);
 
   function getToolContext(): ToolContext | null {
     const previewCtx = previewRef.current?.getContext('2d');
@@ -96,8 +116,9 @@ export function Canvas() {
 
   return (
     <div
-      className="relative shadow-lg ring-1 ring-zinc-300 bg-white"
-      style={{ width, height }}
+      ref={containerRef}
+      className="relative h-full w-full shadow-lg ring-1 ring-zinc-300 dark:ring-zinc-700"
+      style={{ background }}
     >
       <canvas
         ref={committedRef}

@@ -24,4 +24,10 @@ export interface Tool {
   onPointerCancel?(ctx: ToolContext): void;
 }
 
-export type ToolName = 'pencil';
+export type ToolName =
+  | 'pencil'
+  | 'pen'
+  | 'brush'
+  | 'marker'
+  | 'airbrush'
+  | 'eraser';

@@ -1,30 +1,40 @@
 import type { Tool, ToolContext } from './types';
-import type { Point } from '../commands/types';
+import type { Point, StrokeKind } from '../commands/types';
 import { withSymmetry } from '../symmetry/withSymmetry';
+import { drawStroke } from '../commands/execute';
 
-export function createPencilTool(): Tool {
+type StrokeToolOptions = {
+  name: StrokeKind;
+  cursor?: string;
+  /** Resolves the stroke color from context (lets eraser use the background). */
+  resolveColor?: (ctx: ToolContext) => string;
+  /** Optional fixed opacity override. */
+  opacity?: number;
+};
+
+export function createStrokeTool(opts: StrokeToolOptions): Tool {
   let points: Point[] = [];
   let active = false;
+
+  function styleFor(ctx: ToolContext) {
+    return {
+      color: opts.resolveColor ? opts.resolveColor(ctx) : ctx.foreground,
+      width: ctx.brushSize,
+      opacity: opts.opacity,
+    };
+  }
 
   function renderPreview(ctx: ToolContext) {
     ctx.clearPreview();
     if (points.length === 0) return;
     withSymmetry(ctx.previewCtx, ctx.symmetry, (c) => {
-      c.strokeStyle = ctx.foreground;
-      c.lineWidth = ctx.brushSize;
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
-      c.beginPath();
-      points.forEach((p, i) =>
-        i === 0 ? c.moveTo(p.x, p.y) : c.lineTo(p.x, p.y),
-      );
-      c.stroke();
+      drawStroke(c, opts.name, points, styleFor(ctx));
     });
   }
 
   return {
-    name: 'pencil',
-    cursor: 'crosshair',
+    name: opts.name,
+    cursor: opts.cursor ?? 'crosshair',
 
     onPointerDown(p, ctx) {
       points = [p];
@@ -43,9 +53,10 @@ export function createPencilTool(): Tool {
       active = false;
       if (points.length > 0) {
         ctx.commit({
-          type: 'pencil',
+          type: 'stroke',
+          kind: opts.name,
           points: [...points],
-          style: { color: ctx.foreground, width: ctx.brushSize },
+          style: styleFor(ctx),
           symmetry: ctx.symmetry,
         });
       }
