@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "width": 1024,
+  "height": 1024,
+  "background": "#ffffff",
+  "symmetryDefaults": { "slices": 6, "reflect": true },
+  "commands": [
+    {
+      "type": "stroke",
+      "kind": "brush",
+      "points": [
+        { "x": 512, "y": 512 },
+        { "x": 560, "y": 420 },
+        { "x": 600, "y": 320 },
+        { "x": 580, "y": 220 },
+        { "x": 512, "y": 180 }
+      ],
+      "style": { "color": "#ec4899", "width": 38, "opacity": 0.4 }
+    },
+    {
+      "type": "stroke",
+      "kind": "marker",
+      "points": [
+        { "x": 512, "y": 512 },
+        { "x": 540, "y": 380 },
+        { "x": 530, "y": 260 }
+      ],
+      "style": { "color": "#16a34a", "width": 6, "opacity": 0.8 }
+    }
+  ]
+}

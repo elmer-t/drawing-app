@@ -79,6 +79,13 @@ type AppState = {
   undo: () => void;
   redo: () => void;
   clear: () => void;
+
+  loadSpec: (params: {
+    width: number;
+    height: number;
+    background: Color;
+    commands: Command[];
+  }) => void;
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -200,6 +207,20 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       commands: [...s.commands, { type: 'clear' }],
       redoStack: [],
+    })),
+
+  loadSpec: ({ width, height, background, commands }) =>
+    set((s) => ({
+      width,
+      height,
+      background,
+      commands,
+      redoStack: [],
+      symmetry: {
+        ...s.symmetry,
+        centerX: width / 2,
+        centerY: height / 2,
+      },
     })),
 }));
 

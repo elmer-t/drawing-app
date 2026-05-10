@@ -40,22 +40,37 @@ Then open the URL Vite prints (usually http://localhost:5173).
 Other scripts:
 
 ```bash
+npm run api        # local HTTP API for AI agents (http://127.0.0.1:5174)
+npm run dev:all    # UI + API together
 npm run build      # type-check + production build
 npm run preview    # serve the production build locally
 npm run lint       # eslint
 ```
+
+## Agentic API
+
+Yantric ships a local HTTP API that renders mandalas from JSON. AI tools post a
+spec and get back a PNG. The same JSON round-trips through the UI's
+Import / Export buttons.
+
+See [`docs/api.md`](./docs/api.md) for the spec format and endpoints, and
+[`.claude/skills/yantric/SKILL.md`](./.claude/skills/yantric/SKILL.md) for the
+agent-facing skill file.
 
 ## Project layout
 
 ```
 src/
   app/         App shell — header, layout, global keyboard shortcuts, theme effects
+  api/         MandalaSpec types and validator (shared with the server)
   canvas/      Canvas component, viewport math, screen↔canvas coordinate mapping
   commands/    Command types and the replay/history machinery
   state/       Zustand store (single source of truth)
   symmetry/    withSymmetry — the rotation/reflection wrapper around any draw call
   tools/       Pencil, brush, marker, airbrush, eraser
   ui/          Toolbar, color/brush/symmetry/zoom/theme controls
+server/        Headless render API (Node + @napi-rs/canvas)
+docs/          API docs and example specs
 ```
 
 ## Keyboard shortcuts
