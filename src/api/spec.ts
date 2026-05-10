@@ -112,12 +112,47 @@ function validateCommand(
       if (errors.length !== before) return null;
       return { type: 'airbrush', dots: dots!, style: style!, symmetry: symmetry! };
     }
+    case 'fill': {
+      const point = validatePoint(raw.point, `${path}.point`, errors);
+      if (typeof raw.color !== 'string') {
+        errors.push({ path: `${path}.color`, message: 'must be a CSS color string' });
+      }
+      let tolerance = 32;
+      if (raw.tolerance !== undefined) {
+        if (typeof raw.tolerance !== 'number' || raw.tolerance < 0 || raw.tolerance > 255) {
+          errors.push({ path: `${path}.tolerance`, message: 'must be a number in [0, 255]' });
+        } else {
+          tolerance = raw.tolerance;
+        }
+      }
+      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center);
+      if (errors.length !== before) return null;
+      return {
+        type: 'fill',
+        point: point!,
+        color: raw.color as string,
+        tolerance,
+        symmetry: symmetry!,
+      };
+    }
     case 'clear':
       return { type: 'clear' };
     default:
-      errors.push({ path: `${path}.type`, message: `must be "stroke" | "airbrush" | "clear"` });
+      errors.push({ path: `${path}.type`, message: `must be "stroke" | "airbrush" | "fill" | "clear"` });
       return null;
   }
+}
+
+function validatePoint(raw: unknown, path: string, errors: ValidationError[]): Point | null {
+  if (!isObject(raw) || typeof raw.x !== 'number' || typeof raw.y !== 'number') {
+    errors.push({ path, message: 'must be { x: number, y: number }' });
+    return null;
+  }
+  if (!Number.isFinite(raw.x) || !Number.isFinite(raw.y)) {
+    errors.push({ path, message: 'x and y must be finite' });
+    return null;
+  }
+  return { x: raw.x, y: raw.y };
 }
 
 function validatePoints(raw: unknown, path: string, errors: ValidationError[]): Point[] | null {

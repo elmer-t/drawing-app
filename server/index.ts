@@ -210,6 +210,17 @@ function schema() {
           },
           {
             type: 'object',
+            required: ['type', 'point', 'color'],
+            properties: {
+              type: { const: 'fill' },
+              point: { $ref: '#/$defs/Point' },
+              color: { type: 'string' },
+              tolerance: { type: 'number', minimum: 0, maximum: 255 },
+              symmetry: { $ref: '#/$defs/Symmetry' },
+            },
+          },
+          {
+            type: 'object',
             required: ['type'],
             properties: { type: { const: 'clear' } },
           },

@@ -29,4 +29,5 @@ export type ToolName =
   | 'brush'
   | 'marker'
   | 'airbrush'
-  | 'eraser';
+  | 'eraser'
+  | 'bucket';

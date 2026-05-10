@@ -76,6 +76,16 @@ export function AirbrushIcon(p: IconProps) {
   );
 }
 
+export function BucketIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5 11 12 4l7 7-7 7-7-7z" />
+      <path d="M5 11h14" />
+      <path d="M19 14c1.2 1.5 2 2.6 2 3.5a2 2 0 1 1-4 0c0-.9.8-2 2-3.5z" />
+    </Svg>
+  );
+}
+
 export function EraserIcon(p: IconProps) {
   return (
     <Svg {...p}>

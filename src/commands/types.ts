@@ -31,4 +31,11 @@ export type Command =
       style: StrokeStyle;
       symmetry: SymmetryConfig;
     }
+  | {
+      type: 'fill';
+      point: Point;
+      color: Color;
+      tolerance: number;
+      symmetry: SymmetryConfig;
+    }
   | { type: 'clear' };

@@ -6,6 +6,7 @@ import type { ToolName } from '../tools/types';
 import {
   AirbrushIcon,
   BrushIcon,
+  BucketIcon,
   CheckIcon,
   ChevronDownIcon,
   EraserIcon,
@@ -21,6 +22,7 @@ const TOOL_ICON: Record<ToolName, IconCmp> = {
   marker: MarkerIcon,
   airbrush: AirbrushIcon,
   eraser: EraserIcon,
+  bucket: BucketIcon,
 };
 
 export function ToolMenu() {
