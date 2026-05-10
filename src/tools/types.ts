@@ -26,7 +26,6 @@ export interface Tool {
 
 export type ToolName =
   | 'pencil'
-  | 'pen'
   | 'brush'
   | 'marker'
   | 'airbrush'

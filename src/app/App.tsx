@@ -1,22 +1,36 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Canvas } from '../canvas/Canvas';
 import { Toolbar } from '../ui/Toolbar';
 import { ColorControls } from '../ui/ColorControls';
 import { BrushSizeControl } from '../ui/BrushSizeControl';
 import { SymmetryControls } from '../ui/SymmetryControls';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { ZoomControls } from '../ui/ZoomControls';
 import { useStore } from '../state/store';
 
 export function App() {
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
-  const theme = useStore((s) => s.theme);
+  const resolvedTheme = useStore((s) => s.resolvedTheme);
+  const themeMode = useStore((s) => s.themeMode);
+  const syncResolvedTheme = useStore((s) => s.syncResolvedTheme);
+
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.style.colorScheme = theme;
-  }, [theme]);
+    root.classList.toggle('dark', resolvedTheme === 'dark');
+    root.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
+
+  // Watch system color-scheme changes when in 'system' mode.
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => syncResolvedTheme();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [themeMode, syncResolvedTheme]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -59,8 +73,16 @@ export function App() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 p-4">
-        <Canvas />
+      <main className="flex-1 min-h-0 relative">
+        <div
+          ref={viewportRef}
+          className="absolute inset-0 overflow-hidden bg-zinc-200/60 dark:bg-zinc-900/60"
+        >
+          <Canvas viewportRef={viewportRef} />
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+          <ZoomControls viewportRef={viewportRef} />
+        </div>
       </main>
     </div>
   );

@@ -49,14 +49,7 @@ export function drawStroke(
       c.stroke();
       break;
 
-    case 'pen':
-      c.globalAlpha = style.opacity ?? 1;
-      traceSmooth(c, points);
-      c.stroke();
-      break;
-
     case 'marker':
-      c.globalCompositeOperation = 'multiply';
       c.globalAlpha = style.opacity ?? 0.5;
       traceSmooth(c, points);
       c.stroke();

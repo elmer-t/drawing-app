@@ -2,26 +2,37 @@ import { create } from 'zustand';
 import type { Color, Command, SymmetryConfig } from '../commands/types';
 import type { ToolName } from '../tools/types';
 
-export type Theme = 'light' | 'dark';
+export type ThemeMode = 'system' | 'light' | 'dark';
+export type ResolvedTheme = 'light' | 'dark';
 
-const DEFAULT_BACKGROUND: Record<Theme, Color> = {
+const DEFAULT_BACKGROUND: Record<ResolvedTheme, Color> = {
   light: '#ffffff',
   dark: '#0f0f12',
 };
 
-const DEFAULT_FOREGROUND: Record<Theme, Color> = {
+const DEFAULT_FOREGROUND: Record<ResolvedTheme, Color> = {
   light: '#111111',
   dark: '#f4f4f5',
 };
 
 const INITIAL_WIDTH = 1024;
 const INITIAL_HEIGHT = 1024;
-const INITIAL_THEME: Theme = detectInitialTheme();
 
-function detectInitialTheme(): Theme {
+const INITIAL_MODE: ThemeMode = detectInitialThemeMode();
+const INITIAL_RESOLVED: ResolvedTheme = resolveTheme(INITIAL_MODE);
+
+function detectInitialThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') return 'system';
+  const stored = window.localStorage?.getItem('mandala.themeMode');
+  if (stored === 'system' || stored === 'light' || stored === 'dark') {
+    return stored;
+  }
+  return 'system';
+}
+
+export function resolveTheme(mode: ThemeMode): ResolvedTheme {
+  if (mode !== 'system') return mode;
   if (typeof window === 'undefined') return 'light';
-  const stored = window.localStorage?.getItem('mandala.theme');
-  if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light';
@@ -31,7 +42,12 @@ type AppState = {
   width: number;
   height: number;
 
-  theme: Theme;
+  themeMode: ThemeMode;
+  resolvedTheme: ResolvedTheme;
+
+  zoom: number;
+  panX: number;
+  panY: number;
 
   activeTool: ToolName;
 
@@ -45,8 +61,12 @@ type AppState = {
   redoStack: Command[];
 
   setCanvasSize: (w: number, h: number) => void;
-  setTheme: (t: Theme) => void;
-  toggleTheme: () => void;
+  setThemeMode: (m: ThemeMode) => void;
+  syncResolvedTheme: () => void;
+
+  setZoom: (z: number) => void;
+  setPan: (x: number, y: number) => void;
+  setView: (zoom: number, panX: number, panY: number) => void;
 
   setActiveTool: (name: ToolName) => void;
   setForeground: (c: Color) => void;
@@ -61,16 +81,21 @@ type AppState = {
   clear: () => void;
 };
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   width: INITIAL_WIDTH,
   height: INITIAL_HEIGHT,
 
-  theme: INITIAL_THEME,
+  themeMode: INITIAL_MODE,
+  resolvedTheme: INITIAL_RESOLVED,
+
+  zoom: 1,
+  panX: 0,
+  panY: 0,
 
   activeTool: 'pencil',
 
-  foreground: DEFAULT_FOREGROUND[INITIAL_THEME],
-  background: DEFAULT_BACKGROUND[INITIAL_THEME],
+  foreground: DEFAULT_FOREGROUND[INITIAL_RESOLVED],
+  background: DEFAULT_BACKGROUND[INITIAL_RESOLVED],
   brushSize: 4,
 
   symmetry: {
@@ -94,30 +119,15 @@ export const useStore = create<AppState>((set) => ({
       },
     })),
 
-  setTheme: (t) =>
+  setThemeMode: (mode) =>
     set((s) => {
-      window.localStorage?.setItem('mandala.theme', t);
-      const prevDefaultBg = DEFAULT_BACKGROUND[s.theme];
-      const prevDefaultFg = DEFAULT_FOREGROUND[s.theme];
+      window.localStorage?.setItem('mandala.themeMode', mode);
+      const next = resolveTheme(mode);
+      const prevDefaultBg = DEFAULT_BACKGROUND[s.resolvedTheme];
+      const prevDefaultFg = DEFAULT_FOREGROUND[s.resolvedTheme];
       return {
-        theme: t,
-        // Only swap the canvas/stroke colors if the user hasn't customised
-        // them away from the previous theme's defaults.
-        background:
-          s.background === prevDefaultBg ? DEFAULT_BACKGROUND[t] : s.background,
-        foreground:
-          s.foreground === prevDefaultFg ? DEFAULT_FOREGROUND[t] : s.foreground,
-      };
-    }),
-
-  toggleTheme: () =>
-    set((s) => {
-      const next: Theme = s.theme === 'light' ? 'dark' : 'light';
-      window.localStorage?.setItem('mandala.theme', next);
-      const prevDefaultBg = DEFAULT_BACKGROUND[s.theme];
-      const prevDefaultFg = DEFAULT_FOREGROUND[s.theme];
-      return {
-        theme: next,
+        themeMode: mode,
+        resolvedTheme: next,
         background:
           s.background === prevDefaultBg
             ? DEFAULT_BACKGROUND[next]
@@ -128,6 +138,30 @@ export const useStore = create<AppState>((set) => ({
             : s.foreground,
       };
     }),
+
+  syncResolvedTheme: () => {
+    const s = get();
+    if (s.themeMode !== 'system') return;
+    const next = resolveTheme('system');
+    if (next === s.resolvedTheme) return;
+    const prevDefaultBg = DEFAULT_BACKGROUND[s.resolvedTheme];
+    const prevDefaultFg = DEFAULT_FOREGROUND[s.resolvedTheme];
+    set({
+      resolvedTheme: next,
+      background:
+        s.background === prevDefaultBg
+          ? DEFAULT_BACKGROUND[next]
+          : s.background,
+      foreground:
+        s.foreground === prevDefaultFg
+          ? DEFAULT_FOREGROUND[next]
+          : s.foreground,
+    });
+  },
+
+  setZoom: (z) => set({ zoom: clampZoom(z) }),
+  setPan: (x, y) => set({ panX: x, panY: y }),
+  setView: (zoom, panX, panY) => set({ zoom: clampZoom(zoom), panX, panY }),
 
   setActiveTool: (name) => set({ activeTool: name }),
   setForeground: (c) => set({ foreground: c }),
@@ -168,3 +202,11 @@ export const useStore = create<AppState>((set) => ({
       redoStack: [],
     })),
 }));
+
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 8;
+
+function clampZoom(z: number): number {
+  if (Number.isNaN(z)) return 1;
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}

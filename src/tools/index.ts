@@ -6,8 +6,6 @@ export function createTool(name: ToolName): Tool {
   switch (name) {
     case 'pencil':
       return createStrokeTool({ name: 'pencil' });
-    case 'pen':
-      return createStrokeTool({ name: 'pen' });
     case 'brush':
       return createStrokeTool({ name: 'brush', opacity: 0.35 });
     case 'marker':
@@ -24,7 +22,6 @@ export function createTool(name: ToolName): Tool {
 
 export const TOOL_LIST: { name: ToolName; label: string }[] = [
   { name: 'pencil', label: 'Pencil' },
-  { name: 'pen', label: 'Pen' },
   { name: 'brush', label: 'Brush' },
   { name: 'marker', label: 'Marker' },
   { name: 'airbrush', label: 'Airbrush' },

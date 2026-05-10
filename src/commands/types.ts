@@ -15,7 +15,7 @@ export type SymmetryConfig = {
   centerY: number;
 };
 
-export type StrokeKind = 'pencil' | 'pen' | 'brush' | 'marker' | 'eraser';
+export type StrokeKind = 'pencil' | 'brush' | 'marker' | 'eraser';
 
 export type Command =
   | {
