@@ -62,7 +62,7 @@ export function App() {
     <div className="h-full flex flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="shrink-0 z-10 bg-white/90 dark:bg-zinc-900/90 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
         <div className="px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-          <h1 className="text-lg font-semibold mr-2">Mandala</h1>
+          <h1 className="text-lg font-semibold mr-2">Yantric</h1>
           <Toolbar />
           <BrushSizeControl />
           <ColorControls />

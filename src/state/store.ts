@@ -23,7 +23,7 @@ const INITIAL_RESOLVED: ResolvedTheme = resolveTheme(INITIAL_MODE);
 
 function detectInitialThemeMode(): ThemeMode {
   if (typeof window === 'undefined') return 'system';
-  const stored = window.localStorage?.getItem('mandala.themeMode');
+  const stored = window.localStorage?.getItem('yantric.themeMode');
   if (stored === 'system' || stored === 'light' || stored === 'dark') {
     return stored;
   }
@@ -121,7 +121,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setThemeMode: (mode) =>
     set((s) => {
-      window.localStorage?.setItem('mandala.themeMode', mode);
+      window.localStorage?.setItem('yantric.themeMode', mode);
       const next = resolveTheme(mode);
       const prevDefaultBg = DEFAULT_BACKGROUND[s.resolvedTheme];
       const prevDefaultFg = DEFAULT_FOREGROUND[s.resolvedTheme];
