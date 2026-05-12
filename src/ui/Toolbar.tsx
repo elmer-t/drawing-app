@@ -1,5 +1,4 @@
 import { useStore } from '../state/store';
-import { ToolMenu } from './ToolMenu';
 import { IO } from './IO';
 
 export function Toolbar() {
@@ -11,10 +10,6 @@ export function Toolbar() {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <ToolMenu />
-
-      <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 mx-1" />
-
       <button
         type="button"
         onClick={undo}

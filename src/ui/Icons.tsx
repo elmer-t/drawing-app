@@ -66,12 +66,13 @@ export function MarkerIcon(p: IconProps) {
 export function AirbrushIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M9 8h7v8H9z" />
-      <path d="M16 10h3v4h-3" />
-      <path d="M9 9V6h3v3" />
-      <circle cx="5" cy="9" r="0.6" fill="currentColor" />
-      <circle cx="4" cy="13" r="0.6" fill="currentColor" />
-      <circle cx="6" cy="14" r="0.6" fill="currentColor" />
+      <path d="M11 4h4v3h-4z" />
+      <path d="M9 7h8v12a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3z" />
+      <path d="M9 13h8" />
+      <circle cx="6" cy="3" r="0.7" fill="currentColor" />
+      <circle cx="4" cy="5" r="0.7" fill="currentColor" />
+      <circle cx="6" cy="7" r="0.7" fill="currentColor" />
+      <circle cx="3" cy="2" r="0.6" fill="currentColor" />
     </Svg>
   );
 }
@@ -79,9 +80,9 @@ export function AirbrushIcon(p: IconProps) {
 export function BucketIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M5 11 12 4l7 7-7 7-7-7z" />
-      <path d="M5 11h14" />
-      <path d="M19 14c1.2 1.5 2 2.6 2 3.5a2 2 0 1 1-4 0c0-.9.8-2 2-3.5z" />
+      <path d="M8 5q4-3 8 0" />
+      <path d="M3 6h18l-2 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" />
+      <path d="M4 10c4 1.5 12 1.5 16 0" />
     </Svg>
   );
 }

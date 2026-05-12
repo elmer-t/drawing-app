@@ -1,4 +1,4 @@
-# Yantric API
+# Symmetrox API
 
 A local HTTP API that renders mandalas from JSON. Built for AI agents (and
 humans) to produce mandalas without driving a browser.
@@ -32,8 +32,8 @@ curl -X POST http://127.0.0.1:5174/api/render \
 | POST   | `/api/validate`  | `MandalaSpec`                        | `{ ok }` or `{ ok: false, errors }` |
 | POST   | `/api/render`    | `MandalaSpec`, `?format=png\|json`   | `image/png` (default) or `{ width, height, pngBase64 }` |
 
-The server binds to `127.0.0.1` only. Override with `YANTRIC_API_HOST` /
-`YANTRIC_API_PORT` env vars.
+The server binds to `127.0.0.1` only. Override with `SYMMETROX_API_HOST` /
+`SYMMETROX_API_PORT` env vars.
 
 ## The mandala spec
 

@@ -3,10 +3,10 @@ import { createCanvas } from '@napi-rs/canvas';
 import { rerender } from '../src/commands/history';
 import { validateSpec, SPEC_VERSION, type MandalaSpec } from '../src/api/spec';
 
-const HOST = process.env.YANTRIC_API_HOST ?? '127.0.0.1';
-const PORT = Number(process.env.YANTRIC_API_PORT ?? 5174);
+const HOST = process.env.SYMMETROX_API_HOST ?? '127.0.0.1';
+const PORT = Number(process.env.SYMMETROX_API_PORT ?? 5174);
 const MAX_BODY = 4 * 1024 * 1024; // 4 MB
-const ALLOWED_ORIGIN = process.env.YANTRIC_ALLOWED_ORIGIN ?? 'http://localhost:5173';
+const ALLOWED_ORIGIN = process.env.SYMMETROX_ALLOWED_ORIGIN ?? 'http://localhost:5173';
 
 type RouteHandler = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) => Promise<void> | void;
 
@@ -43,7 +43,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`yantric api listening on http://${HOST}:${PORT}`);
+  console.log(`symmetrox api listening on http://${HOST}:${PORT}`);
   console.log(`  GET  /api/health`);
   console.log(`  GET  /api/schema`);
   console.log(`  POST /api/validate`);

@@ -1,9 +1,9 @@
 ---
-name: yantric
-description: Generate mandalas as PNGs via the Yantric local HTTP API. Use when the user asks for a mandala, kaleidoscope, yantra, radial pattern, or symmetric ornamental design. Requires `npm run api` to be running at http://127.0.0.1:5174.
+name: symmetrox
+description: Generate mandalas as PNGs via the Symmetrox local HTTP API. Use when the user asks for a mandala, kaleidoscope, yantra, radial pattern, or symmetric ornamental design. Requires `npm run api` to be running at http://127.0.0.1:5174.
 ---
 
-# Yantric mandala API
+# Symmetrox mandala API
 
 A radial-symmetry drawing app exposes a local HTTP API at
 `http://127.0.0.1:5174`. Send it a JSON `MandalaSpec`, get back a PNG.

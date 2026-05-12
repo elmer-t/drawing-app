@@ -1,8 +1,8 @@
-# Yantric
+# Symmetrox
 
 A browser-based drawing app where every stroke is mirrored around a center, turning ordinary marks into mandalas.
 
-The name comes from *yantra* — the Sanskrit word for a geometric, radially symmetric diagram. Yantric is what happens when you draw inside one: a single gesture becomes many, the canvas does the symmetry, and you focus on the line.
+A single gesture becomes many: the canvas does the symmetry, and you focus on the line.
 
 ## What it does
 
@@ -49,12 +49,12 @@ npm run lint       # eslint
 
 ## Agentic API
 
-Yantric ships a local HTTP API that renders mandalas from JSON. AI tools post a
+Symmetrox ships a local HTTP API that renders mandalas from JSON. AI tools post a
 spec and get back a PNG. The same JSON round-trips through the UI's
 Import / Export buttons.
 
 See [`docs/api.md`](./docs/api.md) for the spec format and endpoints, and
-[`.claude/skills/yantric/SKILL.md`](./.claude/skills/yantric/SKILL.md) for the
+[`.claude/skills/symmetrox/SKILL.md`](./.claude/skills/symmetrox/SKILL.md) for the
 agent-facing skill file.
 
 ## Project layout

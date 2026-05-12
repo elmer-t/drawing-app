@@ -20,7 +20,7 @@ export function IO() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `yantric-${Date.now()}.json`;
+    a.download = `symmetrox-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
