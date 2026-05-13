@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Canvas } from '../canvas/Canvas';
-import { Toolbar } from '../ui/Toolbar';
-import { ColorControls } from '../ui/ColorControls';
-import { BrushSizeControl } from '../ui/BrushSizeControl';
-import { SymmetryControls } from '../ui/SymmetryControls';
-import { ThemeToggle } from '../ui/ThemeToggle';
-import { ZoomControls } from '../ui/ZoomControls';
-import { Sidebar } from '../ui/Sidebar';
+import { TopBar } from '../ui/TopBar';
+import { LeftRail } from '../ui/LeftRail';
+import { StatusBar } from '../ui/StatusBar';
 import { useStore } from '../state/store';
+import { TOOL_LIST } from '../tools';
+
+const TOOL_KEY_MAP = new Map(
+  TOOL_LIST.map((t) => [t.key.toLowerCase(), t.name] as const),
+);
 
 export function App() {
   const undo = useStore((s) => s.undo);
@@ -15,16 +16,21 @@ export function App() {
   const resolvedTheme = useStore((s) => s.resolvedTheme);
   const themeMode = useStore((s) => s.themeMode);
   const syncResolvedTheme = useStore((s) => s.syncResolvedTheme);
+  const setActiveTool = useStore((s) => s.setActiveTool);
+  const setBrushSize = useStore((s) => s.setBrushSize);
+  const swapColors = useStore((s) => s.swapColors);
+  const centerPlacementActive = useStore((s) => s.centerPlacementActive);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
+  // Drive both data-theme (CSS tokens) and .dark (any leftover Tailwind dark: classes).
   useEffect(() => {
     const root = document.documentElement;
+    root.setAttribute('data-theme', resolvedTheme);
     root.classList.toggle('dark', resolvedTheme === 'dark');
     root.style.colorScheme = resolvedTheme;
   }, [resolvedTheme]);
 
-  // Watch system color-scheme changes when in 'system' mode.
   useEffect(() => {
     if (themeMode !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -33,61 +39,77 @@ export function App() {
     return () => mq.removeEventListener('change', onChange);
   }, [themeMode, syncResolvedTheme]);
 
+  // Global keyboard shortcuts (single-key tool switching, undo/redo, brush size, swap).
   useEffect(() => {
+    function isEditable(target: EventTarget | null) {
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      return (
+        el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.isContentEditable
+      );
+    }
     function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
+      if (isEditable(e.target)) return;
       const meta = e.ctrlKey || e.metaKey;
-      if (!meta) return;
       const key = e.key.toLowerCase();
-      if (key === 'z' && !e.shiftKey) {
+
+      if (meta && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
-      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        return;
+      }
+      if (meta && ((key === 'z' && e.shiftKey) || key === 'y')) {
         e.preventDefault();
         redo();
+        return;
+      }
+      if (meta) return;
+
+      if (key === '[') {
+        e.preventDefault();
+        const cur = useStore.getState().brushSize;
+        setBrushSize(Math.max(1, cur - 1));
+        return;
+      }
+      if (key === ']') {
+        e.preventDefault();
+        const cur = useStore.getState().brushSize;
+        setBrushSize(Math.min(64, cur + 1));
+        return;
+      }
+      if (key === 'x') {
+        e.preventDefault();
+        swapColors();
+        return;
+      }
+
+      const tool = TOOL_KEY_MAP.get(key);
+      if (tool) {
+        e.preventDefault();
+        setActiveTool(tool);
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo, redo]);
+  }, [undo, redo, setActiveTool, setBrushSize, swapColors]);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <header className="shrink-0 z-10 bg-white/90 dark:bg-zinc-900/90 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
-        <div className="px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-          <h1 className="text-lg font-semibold mr-2">Symmetrox</h1>
-          <Toolbar />
-          <BrushSizeControl />
-          <ColorControls />
-          <SymmetryControls />
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 min-h-0 flex">
-        <Sidebar />
-        <main className="flex-1 min-w-0 relative">
-          <div
-            ref={viewportRef}
-            className="absolute inset-0 overflow-hidden bg-zinc-200/60 dark:bg-zinc-900/60"
-          >
-            <Canvas viewportRef={viewportRef} />
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-            <ZoomControls viewportRef={viewportRef} />
-          </div>
+    <div className="app-shell">
+      <TopBar />
+      <div className="workspace">
+        <LeftRail />
+        <main ref={viewportRef} className="stage">
+          <Canvas viewportRef={viewportRef} />
+          {centerPlacementActive ? (
+            <div className="placing-hint" role="status">
+              CLICK ON THE CANVAS TO SET CENTER · ESC TO CANCEL
+            </div>
+          ) : null}
         </main>
       </div>
+      <StatusBar viewportRef={viewportRef} />
     </div>
   );
 }

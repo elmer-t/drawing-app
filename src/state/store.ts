@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import type { Color, Command, SymmetryConfig, SymmetryMode } from '../commands/types';
+import type { Color, Command, Point, SymmetryConfig, SymmetryMode } from '../commands/types';
 import type { ToolName } from '../tools/types';
 import { DEFAULT_TILE_W, DEFAULT_TILE_H, type SymmetryDefaults } from '../api/spec';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
+
+const MAX_RECENT_COLORS = 8;
 
 const DEFAULT_BACKGROUND: Record<ResolvedTheme, Color> = {
   light: '#ffffff',
@@ -62,6 +64,11 @@ type AppState = {
   /** True while waiting for a canvas click to place the symmetry center. */
   centerPlacementActive: boolean;
 
+  /** Recently used colors (most-recent first), capped at MAX_RECENT_COLORS. */
+  recentColors: Color[];
+  /** Live pointer position in canvas-space pixels, for the status bar XY readout. */
+  pointer: Point | null;
+
   commands: Command[];
   redoStack: Command[];
 
@@ -81,9 +88,14 @@ type AppState = {
   setSymmetryMode: (m: SymmetryMode) => void;
   setSymmetrySlices: (n: number) => void;
   setSymmetryTileSize: (w: number, h: number) => void;
+  setSymmetryTileUniform: (n: number) => void;
   setSymmetryCenter: (x: number, y: number) => void;
   resetSymmetryCenter: () => void;
   setCenterPlacementActive: (active: boolean) => void;
+
+  addRecentColor: (c: Color) => void;
+  swapColors: () => void;
+  setPointer: (p: Point | null) => void;
 
   pushCommand: (c: Command) => void;
   undo: () => void;
@@ -126,6 +138,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
   hasCustomCenter: false,
   centerPlacementActive: false,
+
+  recentColors: [],
+  pointer: null,
 
   commands: [],
   redoStack: [],
@@ -194,6 +209,8 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ symmetry: { ...s.symmetry, slices: n } })),
   setSymmetryTileSize: (w, h) =>
     set((s) => ({ symmetry: { ...s.symmetry, tileW: w, tileH: h } })),
+  setSymmetryTileUniform: (n) =>
+    set((s) => ({ symmetry: { ...s.symmetry, tileW: n, tileH: n } })),
   setSymmetryCenter: (x, y) =>
     set((s) => ({
       symmetry: { ...s.symmetry, centerX: x, centerY: y },
@@ -206,6 +223,15 @@ export const useStore = create<AppState>((set, get) => ({
       hasCustomCenter: false,
     })),
   setCenterPlacementActive: (active) => set({ centerPlacementActive: active }),
+
+  addRecentColor: (c) =>
+    set((s) => {
+      const next = [c, ...s.recentColors.filter((x) => x.toLowerCase() !== c.toLowerCase())];
+      return { recentColors: next.slice(0, MAX_RECENT_COLORS) };
+    }),
+  swapColors: () =>
+    set((s) => ({ foreground: s.background, background: s.foreground })),
+  setPointer: (p) => set({ pointer: p }),
 
   pushCommand: (c) =>
     set((s) => ({ commands: [...s.commands, c], redoStack: [] })),

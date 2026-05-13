@@ -6,6 +6,7 @@ import { computeFit } from './viewport';
 import { rerender } from '../commands/history';
 import { createTool } from '../tools';
 import type { Tool, ToolContext } from '../tools/types';
+import { SymmetryOverlay } from '../ui/SymmetryOverlay';
 
 type Props = {
   viewportRef: RefObject<HTMLDivElement | null>;
@@ -33,6 +34,10 @@ export function Canvas({ viewportRef }: Props) {
   const centerPlacementActive = useStore((s) => s.centerPlacementActive);
   const setSymmetryCenter = useStore((s) => s.setSymmetryCenter);
   const setCenterPlacementActive = useStore((s) => s.setCenterPlacementActive);
+  const setPointer = useStore((s) => s.setPointer);
+  const setForeground = useStore((s) => s.setForeground);
+  const addRecentColor = useStore((s) => s.addRecentColor);
+  const setActiveTool = useStore((s) => s.setActiveTool);
 
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [panning, setPanning] = useState(false);
@@ -80,7 +85,7 @@ export function Canvas({ viewportRef }: Props) {
     return () => ro.disconnect();
   }, [width, height, setView, viewportRef]);
 
-  // Track Space key for pan mode.
+  // Space-to-pan modifier.
   useEffect(() => {
     function isEditable(target: EventTarget | null) {
       const el = target as HTMLElement | null;
@@ -137,6 +142,23 @@ export function Canvas({ viewportRef }: Props) {
     return () => el.removeEventListener('wheel', onWheel);
   }, [viewportRef]);
 
+  // Reads a pixel from the committed layer at canvas-space coordinates.
+  // Eyedropper uses this; pixel coords need to be scaled by DPR.
+  function getColorAt(p: { x: number; y: number }): string | null {
+    const c = committedRef.current;
+    if (!c) return null;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    const t = ctx.getTransform();
+    const dpr = t.a || 1;
+    const px = Math.max(0, Math.min(c.width - 1, Math.round(p.x * dpr)));
+    const py = Math.max(0, Math.min(c.height - 1, Math.round(p.y * dpr)));
+    const data = ctx.getImageData(px, py, 1, 1).data;
+    const [r, g, b, a] = [data[0], data[1], data[2], data[3]];
+    if (a === 0) return background;
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
   function getToolContext(): ToolContext | null {
     const previewCtx = previewRef.current?.getContext('2d');
     if (!previewCtx) return null;
@@ -160,6 +182,10 @@ export function Canvas({ viewportRef }: Props) {
         );
         previewCtx.restore();
       },
+      getColorAt,
+      setForeground,
+      addRecentColor,
+      setActiveTool,
     };
   }
 
@@ -180,6 +206,9 @@ export function Canvas({ viewportRef }: Props) {
       setPanning(true);
       return;
     }
+    // Only the primary (left) mouse button draws — otherwise right-click
+    // would leave a dot before the OS context menu shows.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (centerPlacementActive && previewRef.current) {
       const point = pointerToCanvas(e, previewRef.current);
       setSymmetryCenter(point.x, point.y);
@@ -194,6 +223,9 @@ export function Canvas({ viewportRef }: Props) {
   }
 
   function handlePointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
+    if (previewRef.current) {
+      setPointer(pointerToCanvas(e, previewRef.current));
+    }
     const pan = panStateRef.current;
     if (pan && pan.pointerId === e.pointerId) {
       setPan(
@@ -235,15 +267,26 @@ export function Canvas({ viewportRef }: Props) {
     tool.onPointerCancel?.(tctx);
   }
 
-  const cursor = panning
-    ? 'grabbing'
-    : spaceHeld
-      ? 'grab'
-      : centerPlacementActive
-        ? 'crosshair'
-        : 'crosshair';
+  function handlePointerLeave() {
+    setPointer(null);
+  }
 
-  const showCenter = symmetry.mode === 'cyclic' || symmetry.mode === 'mirror';
+  // Save PNG: TopBar fires the event; we snapshot the committed canvas.
+  useEffect(() => {
+    function onSave() {
+      const committed = committedRef.current;
+      if (!committed) return;
+      const url = committed.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `symmetrox-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    window.addEventListener('symmetrox:save-png', onSave);
+    return () => window.removeEventListener('symmetrox:save-png', onSave);
+  }, []);
 
   // Escape cancels center placement.
   useEffect(() => {
@@ -255,15 +298,22 @@ export function Canvas({ viewportRef }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [centerPlacementActive, setCenterPlacementActive]);
 
+  const cursor = panning
+    ? 'grabbing'
+    : spaceHeld
+      ? 'grab'
+      : 'crosshair';
+
   return (
     <div
-      className="absolute top-0 left-0 origin-top-left will-change-transform"
+      className="canvas-stage"
       style={{
         width,
         height,
         transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+        transformOrigin: 'top left',
         background,
-        boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+        willChange: 'transform',
       }}
     >
       <canvas
@@ -279,56 +329,17 @@ export function Canvas({ viewportRef }: Props) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onPointerLeave={handlePointerLeave}
       />
-      {showCenter ? (
-        <CenterMarker
-          x={symmetry.centerX}
-          y={symmetry.centerY}
-          zoom={zoom}
-          highlighted={centerPlacementActive}
-        />
-      ) : null}
+      <SymmetryOverlay
+        symmetry={symmetry}
+        canvasWidth={width}
+        canvasHeight={height}
+      />
     </div>
   );
 }
 
-function CenterMarker({
-  x,
-  y,
-  zoom,
-  highlighted,
-}: {
-  x: number;
-  y: number;
-  zoom: number;
-  highlighted: boolean;
-}) {
-  // Counter-scale so the marker stays a constant pixel size on screen.
-  const inv = 1 / Math.max(zoom, 0.0001);
-  const armLen = 12;
-  const ringR = 6;
-  const stroke = highlighted ? '#f59e0b' : '#ef4444';
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute"
-      style={{
-        left: x,
-        top: y,
-        transform: `translate(-50%, -50%) scale(${inv})`,
-      }}
-    >
-      <svg
-        width={armLen * 2 + 4}
-        height={armLen * 2 + 4}
-        viewBox={`${-armLen - 2} ${-armLen - 2} ${armLen * 2 + 4} ${armLen * 2 + 4}`}
-        style={{ display: 'block', overflow: 'visible' }}
-      >
-        <line x1={-armLen} y1={0} x2={armLen} y2={0} stroke={stroke} strokeWidth={1.5} />
-        <line x1={0} y1={-armLen} x2={0} y2={armLen} stroke={stroke} strokeWidth={1.5} />
-        <circle cx={0} cy={0} r={ringR} fill="none" stroke={stroke} strokeWidth={1.5} />
-      </svg>
-    </div>
-  );
+function toHex(n: number): string {
+  return n.toString(16).padStart(2, '0');
 }
-

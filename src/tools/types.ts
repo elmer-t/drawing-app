@@ -13,6 +13,15 @@ export type ToolContext = {
 
   commit: (command: Command) => void;
   clearPreview: () => void;
+
+  /** Reads the committed-canvas pixel at the given canvas-space point. */
+  getColorAt: (point: Point) => string | null;
+  /** Sets the active foreground (stroke) color. */
+  setForeground: (c: Color) => void;
+  /** Adds a color to the recent-colors list. */
+  addRecentColor: (c: Color) => void;
+  /** Switches the active tool. Used by Eyedropper to return to the previous tool. */
+  setActiveTool: (name: ToolName) => void;
 };
 
 export interface Tool {
@@ -30,4 +39,5 @@ export type ToolName =
   | 'marker'
   | 'airbrush'
   | 'eraser'
-  | 'bucket';
+  | 'bucket'
+  | 'eyedropper';
