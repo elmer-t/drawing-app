@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Color, Command, SymmetryConfig } from '../commands/types';
+import type { Color, Command, SymmetryConfig, SymmetryMode } from '../commands/types';
 import type { ToolName } from '../tools/types';
+import { DEFAULT_TILE_W, DEFAULT_TILE_H, type SymmetryDefaults } from '../api/spec';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
@@ -56,6 +57,10 @@ type AppState = {
   brushSize: number;
 
   symmetry: SymmetryConfig;
+  /** True once the user has explicitly placed the symmetry center. */
+  hasCustomCenter: boolean;
+  /** True while waiting for a canvas click to place the symmetry center. */
+  centerPlacementActive: boolean;
 
   commands: Command[];
   redoStack: Command[];
@@ -72,8 +77,13 @@ type AppState = {
   setForeground: (c: Color) => void;
   setBackground: (c: Color) => void;
   setBrushSize: (n: number) => void;
+
+  setSymmetryMode: (m: SymmetryMode) => void;
   setSymmetrySlices: (n: number) => void;
-  setSymmetryReflect: (b: boolean) => void;
+  setSymmetryTileSize: (w: number, h: number) => void;
+  setSymmetryCenter: (x: number, y: number) => void;
+  resetSymmetryCenter: () => void;
+  setCenterPlacementActive: (active: boolean) => void;
 
   pushCommand: (c: Command) => void;
   undo: () => void;
@@ -85,6 +95,7 @@ type AppState = {
     height: number;
     background: Color;
     commands: Command[];
+    symmetryDefaults?: SymmetryDefaults;
   }) => void;
 };
 
@@ -106,11 +117,15 @@ export const useStore = create<AppState>((set, get) => ({
   brushSize: 4,
 
   symmetry: {
+    mode: 'cyclic',
     slices: 6,
-    reflect: false,
+    tileW: DEFAULT_TILE_W,
+    tileH: DEFAULT_TILE_H,
     centerX: INITIAL_WIDTH / 2,
     centerY: INITIAL_HEIGHT / 2,
   },
+  hasCustomCenter: false,
+  centerPlacementActive: false,
 
   commands: [],
   redoStack: [],
@@ -119,11 +134,9 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       width: w,
       height: h,
-      symmetry: {
-        ...s.symmetry,
-        centerX: w / 2,
-        centerY: h / 2,
-      },
+      symmetry: s.hasCustomCenter
+        ? s.symmetry
+        : { ...s.symmetry, centerX: w / 2, centerY: h / 2 },
     })),
 
   setThemeMode: (mode) =>
@@ -170,15 +183,29 @@ export const useStore = create<AppState>((set, get) => ({
   setPan: (x, y) => set({ panX: x, panY: y }),
   setView: (zoom, panX, panY) => set({ zoom: clampZoom(zoom), panX, panY }),
 
-  setActiveTool: (name) => set({ activeTool: name }),
+  setActiveTool: (name) => set({ activeTool: name, centerPlacementActive: false }),
   setForeground: (c) => set({ foreground: c }),
   setBackground: (c) => set({ background: c }),
   setBrushSize: (n) => set({ brushSize: n }),
 
+  setSymmetryMode: (m) =>
+    set((s) => ({ symmetry: { ...s.symmetry, mode: m } })),
   setSymmetrySlices: (n) =>
     set((s) => ({ symmetry: { ...s.symmetry, slices: n } })),
-  setSymmetryReflect: (b) =>
-    set((s) => ({ symmetry: { ...s.symmetry, reflect: b } })),
+  setSymmetryTileSize: (w, h) =>
+    set((s) => ({ symmetry: { ...s.symmetry, tileW: w, tileH: h } })),
+  setSymmetryCenter: (x, y) =>
+    set((s) => ({
+      symmetry: { ...s.symmetry, centerX: x, centerY: y },
+      hasCustomCenter: true,
+      centerPlacementActive: false,
+    })),
+  resetSymmetryCenter: () =>
+    set((s) => ({
+      symmetry: { ...s.symmetry, centerX: s.width / 2, centerY: s.height / 2 },
+      hasCustomCenter: false,
+    })),
+  setCenterPlacementActive: (active) => set({ centerPlacementActive: active }),
 
   pushCommand: (c) =>
     set((s) => ({ commands: [...s.commands, c], redoStack: [] })),
@@ -209,15 +236,20 @@ export const useStore = create<AppState>((set, get) => ({
       redoStack: [],
     })),
 
-  loadSpec: ({ width, height, background, commands }) =>
+  loadSpec: ({ width, height, background, commands, symmetryDefaults }) =>
     set((s) => ({
       width,
       height,
       background,
       commands,
       redoStack: [],
+      hasCustomCenter: false,
+      centerPlacementActive: false,
       symmetry: {
-        ...s.symmetry,
+        mode: symmetryDefaults?.mode ?? s.symmetry.mode,
+        slices: symmetryDefaults?.slices ?? s.symmetry.slices,
+        tileW: symmetryDefaults?.tileW ?? s.symmetry.tileW,
+        tileH: symmetryDefaults?.tileH ?? s.symmetry.tileH,
         centerX: width / 2,
         centerY: height / 2,
       },

@@ -180,7 +180,7 @@ function fillRegion(
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const image = ctx.getImageData(0, 0, w, h);
-  for (const seed of symmetricPoints(point, symmetry)) {
+  for (const seed of symmetricPoints(point, symmetry, w / scale, h / scale)) {
     const sx = Math.round(seed.x * scale);
     const sy = Math.round(seed.y * scale);
     if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
@@ -190,28 +190,53 @@ function fillRegion(
   ctx.restore();
 }
 
-function symmetricPoints(p: Point, sym: SymmetryConfig): Point[] {
-  const { slices, reflect, centerX, centerY } = sym;
-  const out: Point[] = [];
-  const dx = p.x - centerX;
-  const dy = p.y - centerY;
-  for (let i = 0; i < slices; i++) {
-    const a = (i * 2 * Math.PI) / slices;
-    const cos = Math.cos(a);
-    const sin = Math.sin(a);
-    out.push({
-      x: centerX + dx * cos - dy * sin,
-      y: centerY + dx * sin + dy * cos,
-    });
-    if (reflect) {
-      // Rotate by `a`, then mirror across the local X axis (the seam axis).
-      out.push({
-        x: centerX + (-dx) * cos - dy * sin,
-        y: centerY + (-dx) * sin + dy * cos,
-      });
+function symmetricPoints(
+  p: Point,
+  sym: SymmetryConfig,
+  canvasW: number,
+  canvasH: number,
+): Point[] {
+  switch (sym.mode) {
+    case 'off':
+      return [{ x: p.x, y: p.y }];
+    case 'cyclic':
+    case 'mirror': {
+      const { slices, centerX, centerY } = sym;
+      const reflect = sym.mode === 'mirror';
+      const out: Point[] = [];
+      const dx = p.x - centerX;
+      const dy = p.y - centerY;
+      for (let i = 0; i < slices; i++) {
+        const a = (i * 2 * Math.PI) / slices;
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+        out.push({
+          x: centerX + dx * cos - dy * sin,
+          y: centerY + dx * sin + dy * cos,
+        });
+        if (reflect) {
+          out.push({
+            x: centerX + (-dx) * cos - dy * sin,
+            y: centerY + (-dx) * sin + dy * cos,
+          });
+        }
+      }
+      return out;
+    }
+    case 'tile': {
+      const { tileW, tileH } = sym;
+      if (tileW <= 0 || tileH <= 0) return [{ x: p.x, y: p.y }];
+      const nMax = Math.ceil(canvasW / tileW) + 1;
+      const mMax = Math.ceil(canvasH / tileH) + 1;
+      const out: Point[] = [];
+      for (let n = -nMax; n <= nMax; n++) {
+        for (let m = -mMax; m <= mMax; m++) {
+          out.push({ x: p.x + n * tileW, y: p.y + m * tileH });
+        }
+      }
+      return out;
     }
   }
-  return out;
 }
 
 type RGBA = [number, number, number, number];

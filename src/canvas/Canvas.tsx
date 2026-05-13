@@ -30,6 +30,9 @@ export function Canvas({ viewportRef }: Props) {
   const panY = useStore((s) => s.panY);
   const setView = useStore((s) => s.setView);
   const setPan = useStore((s) => s.setPan);
+  const centerPlacementActive = useStore((s) => s.centerPlacementActive);
+  const setSymmetryCenter = useStore((s) => s.setSymmetryCenter);
+  const setCenterPlacementActive = useStore((s) => s.setCenterPlacementActive);
 
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [panning, setPanning] = useState(false);
@@ -177,6 +180,11 @@ export function Canvas({ viewportRef }: Props) {
       setPanning(true);
       return;
     }
+    if (centerPlacementActive && previewRef.current) {
+      const point = pointerToCanvas(e, previewRef.current);
+      setSymmetryCenter(point.x, point.y);
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     const tool = toolRef.current;
     const tctx = getToolContext();
@@ -231,7 +239,21 @@ export function Canvas({ viewportRef }: Props) {
     ? 'grabbing'
     : spaceHeld
       ? 'grab'
-      : 'crosshair';
+      : centerPlacementActive
+        ? 'crosshair'
+        : 'crosshair';
+
+  const showCenter = symmetry.mode === 'cyclic' || symmetry.mode === 'mirror';
+
+  // Escape cancels center placement.
+  useEffect(() => {
+    if (!centerPlacementActive) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setCenterPlacementActive(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [centerPlacementActive, setCenterPlacementActive]);
 
   return (
     <div
@@ -258,6 +280,54 @@ export function Canvas({ viewportRef }: Props) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
       />
+      {showCenter ? (
+        <CenterMarker
+          x={symmetry.centerX}
+          y={symmetry.centerY}
+          zoom={zoom}
+          highlighted={centerPlacementActive}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CenterMarker({
+  x,
+  y,
+  zoom,
+  highlighted,
+}: {
+  x: number;
+  y: number;
+  zoom: number;
+  highlighted: boolean;
+}) {
+  // Counter-scale so the marker stays a constant pixel size on screen.
+  const inv = 1 / Math.max(zoom, 0.0001);
+  const armLen = 12;
+  const ringR = 6;
+  const stroke = highlighted ? '#f59e0b' : '#ef4444';
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute"
+      style={{
+        left: x,
+        top: y,
+        transform: `translate(-50%, -50%) scale(${inv})`,
+      }}
+    >
+      <svg
+        width={armLen * 2 + 4}
+        height={armLen * 2 + 4}
+        viewBox={`${-armLen - 2} ${-armLen - 2} ${armLen * 2 + 4} ${armLen * 2 + 4}`}
+        style={{ display: 'block', overflow: 'visible' }}
+      >
+        <line x1={-armLen} y1={0} x2={armLen} y2={0} stroke={stroke} strokeWidth={1.5} />
+        <line x1={0} y1={-armLen} x2={0} y2={armLen} stroke={stroke} strokeWidth={1.5} />
+        <circle cx={0} cy={0} r={ringR} fill="none" stroke={stroke} strokeWidth={1.5} />
+      </svg>
     </div>
   );
 }

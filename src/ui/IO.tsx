@@ -13,7 +13,12 @@ export function IO() {
       width,
       height,
       background,
-      symmetryDefaults: { slices: symmetry.slices, reflect: symmetry.reflect },
+      symmetryDefaults: {
+        mode: symmetry.mode,
+        slices: symmetry.slices,
+        tileW: symmetry.tileW,
+        tileH: symmetry.tileH,
+      },
       commands,
     };
     const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' });
@@ -44,6 +49,7 @@ export function IO() {
         height: spec.height,
         background: spec.background,
         commands: spec.commands,
+        symmetryDefaults: spec.symmetryDefaults,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

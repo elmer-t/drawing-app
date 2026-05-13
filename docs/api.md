@@ -39,27 +39,43 @@ The server binds to `127.0.0.1` only. Override with `SYMMETROX_API_HOST` /
 
 ```jsonc
 {
-  "version": 1,
+  "version": 2,
   "width": 1024,            // canvas pixels (positive integer)
   "height": 1024,
   "background": "#0f0f12",  // CSS color or "transparent"
-  "symmetryDefaults": { "slices": 8, "reflect": false }, // optional
+  "symmetryDefaults": {     // optional; filled in for commands missing `symmetry`
+    "mode": "cyclic",       // "off" | "cyclic" | "mirror" | "tile"
+    "slices": 8,            // used by cyclic/mirror (1..64)
+    "tileW": 128,           // used by tile (px)
+    "tileH": 128
+  },
   "commands": [ /* see below */ ]
 }
 ```
 
+> v1 specs (`{ slices, reflect }`) are still accepted — the server migrates
+> them to v2 on the fly (`reflect: true` → `mode: "mirror"`, otherwise
+> `mode: "cyclic"`).
+
+### Symmetry modes
+
+- **off** — no symmetry; the draw call runs once.
+- **cyclic** — one stroke becomes `slices` rotated copies around `(centerX, centerY)`.
+- **mirror** — like cyclic, plus a reflection at each step (`2 × slices` copies).
+- **tile** — translation symmetry. The stroke repeats across the canvas every
+  `tileW` pixels horizontally and `tileH` pixels vertically.
+
 ### Coordinates
 
 Canvas coordinates: origin at top-left, x grows right, y grows **down**. The
-canvas center is `(width / 2, height / 2)` — your symmetry center, unless you
-override per-command.
+canvas center is `(width / 2, height / 2)` — the default symmetry center,
+unless you override `centerX` / `centerY` per-command.
 
 ### Commands
 
 Drawings are an ordered list of commands replayed onto the canvas. You almost
-never want to fan out the radial copies yourself — set `slices` and let the
-renderer multiply each stroke. One stroke in the spec becomes `slices` strokes
-on the canvas (or `2 × slices` if `reflect` is true).
+never want to fan out the radial copies yourself — set the symmetry config and
+let the renderer multiply each stroke.
 
 #### `stroke` — pencil / brush / marker / eraser
 
@@ -69,7 +85,7 @@ on the canvas (or `2 × slices` if `reflect` is true).
   "kind": "pencil",
   "points": [ { "x": 512, "y": 512 }, { "x": 600, "y": 400 } ],
   "style": { "color": "#f4f4f5", "width": 4, "opacity": 1 },
-  "symmetry": { "slices": 8, "reflect": false }
+  "symmetry": { "mode": "cyclic", "slices": 8 }
 }
 ```
 
@@ -79,7 +95,7 @@ on the canvas (or `2 × slices` if `reflect` is true).
 - `style.opacity`: optional, defaults vary by kind (pencil 1, brush 0.35,
   marker 0.5, eraser 1).
 - `symmetry`: optional if `symmetryDefaults` is set. `centerX` / `centerY`
-  default to the canvas center.
+  default to the canvas center. `tileW` / `tileH` default to 128.
 
 #### `airbrush`
 
@@ -88,11 +104,25 @@ on the canvas (or `2 × slices` if `reflect` is true).
   "type": "airbrush",
   "dots": [ { "x": 600, "y": 400 } ],
   "style": { "color": "#888", "width": 24, "opacity": 0.15 },
-  "symmetry": { "slices": 8, "reflect": true }
+  "symmetry": { "mode": "mirror", "slices": 8 }
 }
 ```
 
 Each dot becomes a soft splatter sized from `style.width / 8`.
+
+#### `fill` — flood bucket
+
+```json
+{
+  "type": "fill",
+  "point": { "x": 600, "y": 400 },
+  "color": "#fbbf24",
+  "tolerance": 32,
+  "symmetry": { "mode": "cyclic", "slices": 8 }
+}
+```
+
+The flood fill seed is duplicated across all symmetric copies of the seed point.
 
 #### `clear`
 
@@ -122,8 +152,12 @@ Wipes the canvas to transparent at this point in the command list. The
   from `(centerX, centerY)` outward; the renderer copies it.
 - **Vary slices per command.** One stroke can use `slices: 6`, the next
   `slices: 12`. Layering different counts gives richer patterns.
-- **Reflect for kaleidoscope.** Off → pinwheel/rotation. On → mirror-symmetric
-  petals.
+- **Mirror for kaleidoscope.** `cyclic` → pinwheel/rotation. `mirror` →
+  mirror-symmetric petals.
+- **Tile for textile-style patterns.** Draw one motif inside a `tileW × tileH`
+  region and it repeats across the canvas.
+- **Move the center.** Off-center symmetry produces very different feeling
+  compositions from concentric mandalas — set `centerX` / `centerY` per command.
 - **Keep point counts modest.** 5–20 points per stroke is plenty; symmetry
   multiplies them.
 - **Validate before rendering.** `POST /api/validate` is cheap and returns the

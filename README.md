@@ -6,17 +6,21 @@ A single gesture becomes many: the canvas does the symmetry, and you focus on th
 
 ## What it does
 
-- **Radial symmetry, live.** Pick the number of slices (1–24). Every stroke is duplicated around the center as you draw it.
-- **Optional reflection.** Mirror each slice for kaleidoscope-style patterns instead of pure rotation.
-- **Five tools.** Pencil, brush, marker, airbrush, and eraser — all symmetry-aware.
+- **Four symmetry modes**, inspired by Deluxe Paint II:
+  - **Off** — no symmetry, draw plain strokes.
+  - **Cyclic** — rotational copies around a center point (1–40 points).
+  - **Mirror** — rotational copies plus a reflection at each step (kaleidoscope).
+  - **Tile** — repeat your stroke across the canvas as a tile pattern (W × H pixels).
+- **Place Center.** The symmetry center defaults to the canvas center, but you can place it anywhere with one click.
+- **Six tools.** Pencil, brush, marker, airbrush, eraser, and fill bucket — all symmetry-aware.
 - **Adjustable brush size and colors.** Foreground and background colors with sensible light/dark defaults.
-- **Pan & zoom** the canvas without losing your place; symmetry stays anchored to the canvas center, not the viewport.
+- **Pan & zoom** the canvas without losing your place.
 - **Undo / redo** backed by a command history (⌘Z / ⌘⇧Z, Ctrl on Windows/Linux).
 - **Light / dark / system theme.** Background and foreground swap with the theme unless you've picked custom colors.
 
 ## How the symmetry works
 
-A drawing isn't a stack of pixels — it's a list of *commands* (strokes, airbrush dots, clears). When the canvas renders, it walks the command list and, for each one, applies a transform: rotate around the canvas center by `i × (2π / slices)` for `i` in `0..slices`, and optionally mirror. The same draw call runs once per slice, so any tool you build automatically gets symmetry for free.
+A drawing isn't a stack of pixels — it's a list of *commands* (strokes, airbrush dots, fills, clears). When the canvas renders, it walks the command list and, for each one, applies a transform based on the symmetry mode: rotate around the center for cyclic/mirror, or translate across a tile grid for tile mode. The same draw call runs once per slice (or tile), so any tool you build automatically gets symmetry for free.
 
 That's why undo/redo is exact: the canvas re-runs the commands, not a snapshot. And it's why changing the slice count after the fact would change the drawing — the symmetry isn't baked in.
 

@@ -1,6 +1,25 @@
-import type { Command, Point, StrokeKind, StrokeStyle, SymmetryConfig } from '../commands/types';
+import type {
+  Command,
+  Point,
+  StrokeKind,
+  StrokeStyle,
+  SymmetryConfig,
+  SymmetryMode,
+} from '../commands/types';
 
-export const SPEC_VERSION = 1 as const;
+export const SPEC_VERSION = 2 as const;
+const ACCEPTED_VERSIONS = [1, 2] as const;
+type SpecVersion = (typeof ACCEPTED_VERSIONS)[number];
+
+export const DEFAULT_TILE_W = 128;
+export const DEFAULT_TILE_H = 128;
+
+export type SymmetryDefaults = {
+  mode: SymmetryMode;
+  slices: number;
+  tileW: number;
+  tileH: number;
+};
 
 export type MandalaSpec = {
   version: typeof SPEC_VERSION;
@@ -8,10 +27,10 @@ export type MandalaSpec = {
   height: number;
   background: string;
   /**
-   * Optional defaults applied to any stroke/airbrush command that omits its
-   * own `symmetry` field. The server fills these in before rendering.
+   * Optional defaults applied to any stroke/airbrush/fill command that omits
+   * its own `symmetry` field. The server fills these in before rendering.
    */
-  symmetryDefaults?: { slices: number; reflect: boolean };
+  symmetryDefaults?: SymmetryDefaults;
   commands: Command[];
 };
 
@@ -22,6 +41,7 @@ export type ValidationResult =
   | { ok: false; errors: ValidationError[] };
 
 const STROKE_KINDS: StrokeKind[] = ['pencil', 'brush', 'marker', 'eraser'];
+const SYMMETRY_MODES: SymmetryMode[] = ['off', 'cyclic', 'mirror', 'tile'];
 
 export function validateSpec(input: unknown): ValidationResult {
   const errors: ValidationError[] = [];
@@ -29,25 +49,24 @@ export function validateSpec(input: unknown): ValidationResult {
     return { ok: false, errors: [{ path: '', message: 'spec must be an object' }] };
   }
 
-  if (input.version !== SPEC_VERSION) {
-    errors.push({ path: 'version', message: `expected ${SPEC_VERSION}, got ${JSON.stringify(input.version)}` });
-  }
+  const version = checkVersion(input.version, errors);
   const width = checkPositiveInt(input.width, 'width', errors);
   const height = checkPositiveInt(input.height, 'height', errors);
   if (typeof input.background !== 'string') {
     errors.push({ path: 'background', message: 'must be a CSS color string' });
   }
 
-  let defaults: { slices: number; reflect: boolean } | undefined;
+  let defaults: SymmetryDefaults | undefined;
   if (input.symmetryDefaults !== undefined) {
     if (!isObject(input.symmetryDefaults)) {
       errors.push({ path: 'symmetryDefaults', message: 'must be an object' });
     } else {
-      const slices = checkSlices(input.symmetryDefaults.slices, 'symmetryDefaults.slices', errors);
-      const reflect = checkBool(input.symmetryDefaults.reflect, 'symmetryDefaults.reflect', errors);
-      if (slices !== undefined && reflect !== undefined) {
-        defaults = { slices, reflect };
-      }
+      defaults = parseSymmetryDefaults(
+        input.symmetryDefaults,
+        'symmetryDefaults',
+        errors,
+        version,
+      );
     }
   }
 
@@ -63,7 +82,7 @@ export function validateSpec(input: unknown): ValidationResult {
   const commands: Command[] = [];
   for (let i = 0; i < input.commands.length; i++) {
     const path = `commands[${i}]`;
-    const cmd = validateCommand(input.commands[i], path, errors, defaults, center);
+    const cmd = validateCommand(input.commands[i], path, errors, defaults, center, version);
     if (cmd) commands.push(cmd);
   }
 
@@ -85,8 +104,9 @@ function validateCommand(
   raw: unknown,
   path: string,
   errors: ValidationError[],
-  defaults: { slices: number; reflect: boolean } | undefined,
+  defaults: SymmetryDefaults | undefined,
   center: { centerX: number; centerY: number },
+  version: SpecVersion | undefined,
 ): Command | null {
   if (!isObject(raw)) {
     errors.push({ path, message: 'must be an object' });
@@ -101,14 +121,14 @@ function validateCommand(
       }
       const points = validatePoints(raw.points, `${path}.points`, errors);
       const style = validateStyle(raw.style, `${path}.style`, errors);
-      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center);
+      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center, version);
       if (errors.length !== before) return null;
       return { type: 'stroke', kind: kind as StrokeKind, points: points!, style: style!, symmetry: symmetry! };
     }
     case 'airbrush': {
       const dots = validatePoints(raw.dots, `${path}.dots`, errors);
       const style = validateStyle(raw.style, `${path}.style`, errors);
-      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center);
+      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center, version);
       if (errors.length !== before) return null;
       return { type: 'airbrush', dots: dots!, style: style!, symmetry: symmetry! };
     }
@@ -125,7 +145,7 @@ function validateCommand(
           tolerance = raw.tolerance;
         }
       }
-      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center);
+      const symmetry = validateSymmetry(raw.symmetry, `${path}.symmetry`, errors, defaults, center, version);
       if (errors.length !== before) return null;
       return {
         type: 'fill',
@@ -198,32 +218,104 @@ function validateStyle(raw: unknown, path: string, errors: ValidationError[]): S
   };
 }
 
+function parseSymmetryDefaults(
+  raw: Record<string, unknown>,
+  path: string,
+  errors: ValidationError[],
+  version: SpecVersion | undefined,
+): SymmetryDefaults | undefined {
+  // v1 had { slices, reflect }; map reflect -> mode and fill in tile defaults.
+  if (version === 1 && raw.mode === undefined) {
+    const slices = checkSlices(raw.slices, `${path}.slices`, errors);
+    const reflect = checkBool(raw.reflect, `${path}.reflect`, errors);
+    if (slices === undefined || reflect === undefined) return undefined;
+    return {
+      mode: reflect ? 'mirror' : 'cyclic',
+      slices,
+      tileW: DEFAULT_TILE_W,
+      tileH: DEFAULT_TILE_H,
+    };
+  }
+  // v2 (or v1 with explicit mode for round-trips)
+  const mode = checkMode(raw.mode, `${path}.mode`, errors);
+  const slices = raw.slices !== undefined
+    ? checkSlices(raw.slices, `${path}.slices`, errors)
+    : 6;
+  const tileW = raw.tileW !== undefined
+    ? checkTileDim(raw.tileW, `${path}.tileW`, errors)
+    : DEFAULT_TILE_W;
+  const tileH = raw.tileH !== undefined
+    ? checkTileDim(raw.tileH, `${path}.tileH`, errors)
+    : DEFAULT_TILE_H;
+  if (mode === undefined || slices === undefined || tileW === undefined || tileH === undefined) return undefined;
+  return { mode, slices, tileW, tileH };
+}
+
 function validateSymmetry(
   raw: unknown,
   path: string,
   errors: ValidationError[],
-  defaults: { slices: number; reflect: boolean } | undefined,
+  defaults: SymmetryDefaults | undefined,
   center: { centerX: number; centerY: number },
+  version: SpecVersion | undefined,
 ): SymmetryConfig | null {
   if (raw === undefined) {
     if (!defaults) {
       errors.push({ path, message: 'required when symmetryDefaults is not set' });
       return null;
     }
-    return { slices: defaults.slices, reflect: defaults.reflect, centerX: center.centerX, centerY: center.centerY };
+    return {
+      mode: defaults.mode,
+      slices: defaults.slices,
+      tileW: defaults.tileW,
+      tileH: defaults.tileH,
+      centerX: center.centerX,
+      centerY: center.centerY,
+    };
   }
   if (!isObject(raw)) {
     errors.push({ path, message: 'must be an object' });
     return null;
   }
-  const slices = raw.slices ?? defaults?.slices;
-  const reflect = raw.reflect ?? defaults?.reflect ?? false;
-  const slicesOk = checkSlices(slices, `${path}.slices`, errors);
-  const reflectOk = checkBool(reflect, `${path}.reflect`, errors);
+
+  // v1 per-command: { slices, reflect } -> derive mode.
+  let mode: SymmetryMode | undefined;
+  if (raw.mode === undefined && version === 1) {
+    const reflectRaw = raw.reflect ?? defaults?.mode === 'mirror';
+    const reflect = checkBool(reflectRaw, `${path}.reflect`, errors);
+    if (reflect === undefined) return null;
+    mode = reflect ? 'mirror' : 'cyclic';
+  } else {
+    mode = raw.mode !== undefined
+      ? checkMode(raw.mode, `${path}.mode`, errors)
+      : defaults?.mode ?? 'cyclic';
+  }
+  if (mode === undefined) return null;
+
+  const slicesRaw = raw.slices ?? defaults?.slices ?? 6;
+  const slices = checkSlices(slicesRaw, `${path}.slices`, errors);
+  const tileW = raw.tileW !== undefined
+    ? checkTileDim(raw.tileW, `${path}.tileW`, errors)
+    : defaults?.tileW ?? DEFAULT_TILE_W;
+  const tileH = raw.tileH !== undefined
+    ? checkTileDim(raw.tileH, `${path}.tileH`, errors)
+    : defaults?.tileH ?? DEFAULT_TILE_H;
   const centerX = typeof raw.centerX === 'number' ? raw.centerX : center.centerX;
   const centerY = typeof raw.centerY === 'number' ? raw.centerY : center.centerY;
-  if (slicesOk === undefined || reflectOk === undefined) return null;
-  return { slices: slicesOk, reflect: reflectOk, centerX, centerY };
+
+  if (slices === undefined || tileW === undefined || tileH === undefined) return null;
+  return { mode, slices, tileW, tileH, centerX, centerY };
+}
+
+function checkVersion(v: unknown, errors: ValidationError[]): SpecVersion | undefined {
+  if (typeof v !== 'number' || !ACCEPTED_VERSIONS.includes(v as SpecVersion)) {
+    errors.push({
+      path: 'version',
+      message: `expected one of ${ACCEPTED_VERSIONS.join(', ')}, got ${JSON.stringify(v)}`,
+    });
+    return undefined;
+  }
+  return v as SpecVersion;
 }
 
 function checkPositiveInt(v: unknown, path: string, errors: ValidationError[]): number | undefined {
@@ -240,6 +332,22 @@ function checkSlices(v: unknown, path: string, errors: ValidationError[]): numbe
     return undefined;
   }
   return v;
+}
+
+function checkTileDim(v: unknown, path: string, errors: ValidationError[]): number | undefined {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 2 || v > 4096) {
+    errors.push({ path, message: 'must be a finite number in [2, 4096]' });
+    return undefined;
+  }
+  return v;
+}
+
+function checkMode(v: unknown, path: string, errors: ValidationError[]): SymmetryMode | undefined {
+  if (typeof v !== 'string' || !SYMMETRY_MODES.includes(v as SymmetryMode)) {
+    errors.push({ path, message: `must be one of ${SYMMETRY_MODES.join(', ')}` });
+    return undefined;
+  }
+  return v as SymmetryMode;
 }
 
 function checkBool(v: unknown, path: string, errors: ValidationError[]): boolean | undefined {

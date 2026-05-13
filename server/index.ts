@@ -147,15 +147,23 @@ function schema() {
     type: 'object',
     required: ['version', 'width', 'height', 'background', 'commands'],
     properties: {
-      version: { const: SPEC_VERSION },
+      version: {
+        enum: [1, 2],
+        description: `current is ${SPEC_VERSION}; v1 is accepted and migrated`,
+      },
       width: { type: 'integer', minimum: 1 },
       height: { type: 'integer', minimum: 1 },
       background: { type: 'string', description: 'CSS color or "transparent"' },
       symmetryDefaults: {
         type: 'object',
-        required: ['slices', 'reflect'],
+        description:
+          'Optional defaults filled in for commands that omit `symmetry`. v2 shape: { mode, slices, tileW, tileH }. v1 shape `{ slices, reflect }` is migrated.',
         properties: {
+          mode: { enum: ['off', 'cyclic', 'mirror', 'tile'] },
           slices: { type: 'integer', minimum: 1, maximum: 64 },
+          tileW: { type: 'number', minimum: 2, maximum: 4096 },
+          tileH: { type: 'number', minimum: 2, maximum: 4096 },
+          // v1 legacy:
           reflect: { type: 'boolean' },
         },
       },
@@ -178,11 +186,17 @@ function schema() {
       },
       Symmetry: {
         type: 'object',
+        description:
+          'Per-command symmetry. v2 fields: mode (off|cyclic|mirror|tile), slices, tileW, tileH, centerX, centerY. v1 `reflect: bool` is migrated to mode.',
         properties: {
+          mode: { enum: ['off', 'cyclic', 'mirror', 'tile'] },
           slices: { type: 'integer', minimum: 1, maximum: 64 },
-          reflect: { type: 'boolean' },
+          tileW: { type: 'number', minimum: 2, maximum: 4096 },
+          tileH: { type: 'number', minimum: 2, maximum: 4096 },
           centerX: { type: 'number' },
           centerY: { type: 'number' },
+          // v1 legacy:
+          reflect: { type: 'boolean' },
         },
       },
       Command: {

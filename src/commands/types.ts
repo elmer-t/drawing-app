@@ -8,9 +8,13 @@ export type StrokeStyle = {
   opacity?: number;
 };
 
+export type SymmetryMode = 'off' | 'cyclic' | 'mirror' | 'tile';
+
 export type SymmetryConfig = {
+  mode: SymmetryMode;
   slices: number;
-  reflect: boolean;
+  tileW: number;
+  tileH: number;
   centerX: number;
   centerY: number;
 };
